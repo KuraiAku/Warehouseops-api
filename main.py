@@ -3,6 +3,15 @@ from pydantic import BaseModel, Field
 from database import get_db_connection
 from datetime import datetime
 import sqlite3
+from models import (
+    ProductCreate,
+    ProductUpdate,
+    QuantityUpdate,
+    QuantityAdjustment,
+    InventoryAction,
+    OrderItemCreate,
+    OrderCreate,
+)
 
 
 
@@ -111,42 +120,6 @@ def get_product_by_id(product_id: int):
     
     return product
 
-class ProductCreate(BaseModel):
-    sku: str = Field(min_length=1)
-    name: str = Field(min_length=1)
-    category: str = Field(min_length=1)
-    quantity: int = Field(ge=0)
-    location: str = Field(min_length=1)
-    reorder_level: int = Field(ge=0)
-
-
-class ProductUpdate(BaseModel):
-    sku: str = Field(min_length=1)
-    name: str = Field(min_length=1)
-    category: str = Field(min_length=1)
-    quantity: int = Field(ge=0)
-    location: str = Field(min_length=1)
-    reorder_level: int = Field(ge=0)
-
-
-class QuantityUpdate(BaseModel):
-    quantity: int = Field(ge=0)
-
-
-class QuantityAdjustment(BaseModel):
-    change: int
-    reason: str = Field(min_length=1)
-
-class InventoryAction(BaseModel):
-    product_id: int = Field(gt=0)
-    quantity: int = Field(gt=0)
-
-class OrderItemCreate(BaseModel):
-    product_id: int = Field(gt=0)
-    quantity: int = Field(gt=0)
-
-class OrderCreate(BaseModel):
-    items: list[OrderItemCreate]
 
 @app.post("/products", status_code=201)
 def add_product(product: ProductCreate):
