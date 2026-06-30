@@ -1,15 +1,12 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
-import sqlite3
+from database import get_db_connection
 from datetime import datetime
+import sqlite3
 
 
 
 app = FastAPI()
-def get_db_connection():
-    connection = sqlite3.connect("warehouse.db")
-    connection.row_factory = sqlite3.Row
-    return connection
 
 @app.get("/")
 def home():
