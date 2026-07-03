@@ -3,6 +3,8 @@ from pydantic import BaseModel, Field
 from database import get_db_connection
 from datetime import datetime
 import sqlite3
+from routes.products import router as products_router
+
 from models import (
     ProductCreate,
     ProductUpdate,
@@ -16,24 +18,11 @@ from models import (
 
 
 app = FastAPI()
+app.include_router(products_router)
 
 @app.get("/")
 def home():
     return {"message": "Warehouseops API is running!"}
-
-@app.get("/products")
-def get_products():
-    connection = None
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        cursor.execute("SELECT * FROM products")
-        rows = cursor.fetchall()
-        return [dict(row) for row in rows]
-    finally:
-        if connection:
-            connection.close()
-
 
 @app.get('/products/low-stock')
 def get_low_stock_products():
