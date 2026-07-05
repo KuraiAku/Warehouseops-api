@@ -5,7 +5,7 @@ from models import OrderCreate
 
 router = APIRouter()
 
-@router.post("/orders")
+@router.post("/orders", status_code=201)
 def create_order(order: OrderCreate):
     connection = None
     try:
@@ -45,6 +45,9 @@ def create_order(order: OrderCreate):
         connection.commit()
 
         return {
+            "message": "Order created successfully",
+            "order_id": new_order_id,
+            "status": "pending",
             "items": [
                 {
                     "product_id": item.product_id,
