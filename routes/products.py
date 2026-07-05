@@ -188,11 +188,6 @@ def delete_product(product_id: int):
         if connection:
             connection.close()
 
-
-
-
-
-
 @router.patch("/products/{product_id}/adjust-quantity")
 def adjust_product_quantity(product_id: int, update: QuantityAdjustment):
     connection = None

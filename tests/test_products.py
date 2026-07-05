@@ -1,16 +1,11 @@
-from fastapi.testclient import TestClient
-from main import app
-
-client = TestClient(app)
-
-
-def test_get_products_returns_list():
+def test_get_products_returns_list(client):
     response = client.get("/products")
 
     assert response.status_code == 200
     assert isinstance(response.json(), list)
 
-def test_create_product_success():
+
+def test_create_product_success(client):
     product_data = {
         "sku": "TEST-1001",
         "name": "Test Product",
@@ -24,4 +19,4 @@ def test_create_product_success():
 
     assert response.status_code == 201
     assert response.json()["message"] == "Product added successfully"
-    assert "product_id" in response.json() 
+    assert "product_id" in response.json()
