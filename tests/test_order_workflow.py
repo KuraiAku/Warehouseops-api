@@ -1,30 +1,53 @@
-def test_allocate_order_success(client):
+def create_test_product(client, sku="TEST-PRODUCT-1001", quantity=100):
     product_data = {
-        "sku": "ALLOCATE-1001",
-        "name": "Allocate Test Product",
+        "sku": sku,
+        "name": "Test Product",
         "category": "Testing",
-        "quantity": 100,
+        "quantity": quantity,
         "location": "Test Bin",
         "reorder_level": 10
     }
 
-    product_response = client.post("/products", json=product_data)
-    assert product_response.status_code == 201
-    product_id = product_response.json()["product_id"]
+    response = client.post("/products", json=product_data)
 
+    assert response.status_code == 201
+
+    return response.json()["product_id"]
+
+
+def create_test_order(client, product_id, quantity=5):
     order_data = {
-        "items" : 
-        [
+        "items": [
             {
-            "product_id" : product_id,
-             "quantity"  : 5
+                "product_id": product_id,
+                "quantity": quantity
             }
         ]
-    }   
+    }
 
-    order_response = client.post("/orders", json=order_data)
-    assert order_response.status_code == 201
-    order_id = order_response.json()["order_id"]
+    response = client.post("/orders", json=order_data)
+
+    assert response.status_code == 201
+
+    return response.json()["order_id"]
+
+
+
+
+
+
+def test_allocate_order_success(client):
+    product_id = create_test_product(
+        client,
+        sku="ALLOCATE-1001",
+        quantity=100
+    )
+
+    order_id = create_test_order(
+        client,
+        product_id=product_id,
+        quantity=5
+    )
 
     allocate_response = client.post(f"/orders/{order_id}/allocate")
 
@@ -34,32 +57,17 @@ def test_allocate_order_success(client):
     assert allocate_response.json()["status"] == "allocated"
 
 def test_allocate_order_not_enough_inventory_fails(client):
-    product_data = {
-        "sku": "ALLOCATE-FAIL-1001",
-        "name": "Allocate Test Product",
-        "category": "Testing",
-        "quantity": 10,
-        "location": "Test Bin",
-        "reorder_level": 10
-    }
+    product_id = create_test_product(
+        client,
+        sku="ALLOCATE-FAIL-1001",
+        quantity=10
+    )
 
-    product_response = client.post("/products", json=product_data)
-    assert product_response.status_code == 201
-    product_id = product_response.json()["product_id"]
-
-    order_data = {
-        "items" : 
-        [
-            {
-            "product_id" : product_id,
-             "quantity"  : 50
-            }
-        ]
-    }   
-
-    order_response = client.post("/orders", json=order_data)
-    assert order_response.status_code == 201
-    order_id = order_response.json()["order_id"]
+    order_id = create_test_order(
+        client,
+        product_id=product_id,
+        quantity=50
+    )
 
     allocate_response = client.post(f"/orders/{order_id}/allocate")
 
@@ -67,33 +75,17 @@ def test_allocate_order_not_enough_inventory_fails(client):
     assert allocate_response.json()["detail"] == "Not enough inventory to allocate order"
 
 def test_pick_order_success(client):
-    product_data = {
-        "sku": "PICK-1001",
-        "name": "Pick Test Product",
-        "category": "Testing",
-        "quantity": 100,
-        "location": "Test Bin",
-        "reorder_level": 10
-    }
+    product_id = create_test_product(
+        client,
+        sku="PICK-1001",
+        quantity=100
+    )
 
-    product_response = client.post("/products", json=product_data)
-    assert product_response.status_code == 201
-    product_id = product_response.json()["product_id"]
-
-    order_data = {
-        "items" : 
-        [
-            {
-            "product_id" : product_id,
-             "quantity"  : 5
-            }
-        ]
-    }   
-
-    order_response = client.post("/orders", json=order_data)
-    assert order_response.status_code == 201
-
-    order_id = order_response.json()["order_id"]
+    order_id = create_test_order(
+        client,
+        product_id=product_id,
+        quantity=5
+    )
 
     allocate_response = client.post(f"/orders/{order_id}/allocate")
     assert allocate_response.status_code == 200
@@ -106,33 +98,17 @@ def test_pick_order_success(client):
 
 
 def test_pick_order_not_allocated(client):
-    product_data = {
-        "sku": "PICK-NOT-ALLOCATED-1001",
-        "name": "Pick Not Allocated Test Product",
-        "category": "Testing",
-        "quantity": 100,
-        "location": "Test Bin",
-        "reorder_level": 10
-    }
+    product_id = create_test_product(
+        client,
+        sku="PICK-NOT-ALLOCATED-1001",
+        quantity=100
+    )
 
-    product_response = client.post("/products", json=product_data)
-    assert product_response.status_code == 201
-    product_id = product_response.json()["product_id"]
-
-    order_data = {
-        "items" : 
-        [
-            {
-            "product_id" : product_id,
-             "quantity"  : 5
-            }
-        ]
-    }   
-
-    order_response = client.post("/orders", json=order_data)
-    assert order_response.status_code == 201
-
-    order_id = order_response.json()["order_id"]
+    order_id = create_test_order(
+        client,
+        product_id=product_id,
+        quantity=5
+    )
 
     pick_response = client.post(f"/orders/{order_id}/pick")
 
@@ -141,33 +117,17 @@ def test_pick_order_not_allocated(client):
 
 
 def test_picked_order_cancellation_fails(client):
-    product_data = {
-        "sku": "PICK-CANCELLATION-1001",
-        "name": "Pick Cancellation Test Product",
-        "category": "Testing",
-        "quantity": 100,
-        "location": "Test Bin",
-        "reorder_level": 10
-    }
+    product_id = create_test_product(
+        client,
+        sku="PICK-CANCELLED-1001",
+        quantity=100
+    )
 
-    product_response = client.post("/products", json=product_data)
-    assert product_response.status_code == 201
-    product_id = product_response.json()["product_id"]
-
-    order_data = {
-        "items" : 
-        [
-            {
-            "product_id" : product_id,
-             "quantity"  : 5
-            }
-        ]
-    }   
-
-    order_response = client.post("/orders", json=order_data)
-    assert order_response.status_code == 201
-
-    order_id = order_response.json()["order_id"]
+    order_id = create_test_order(
+        client,
+        product_id=product_id,
+        quantity=5
+    )
 
     allocate_response = client.post(f"/orders/{order_id}/allocate")
     assert allocate_response.status_code == 200
