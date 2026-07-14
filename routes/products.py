@@ -1,11 +1,10 @@
 from fastapi import APIRouter, HTTPException
+import psycopg2
 from database import get_db_connection
-import sqlite3
 from datetime import datetime
 from models import (
 ProductCreate,
-ProductUpdate, 
-QuantityUpdate, 
+ProductUpdate,  
 QuantityAdjustment,
 )
 
@@ -51,16 +50,16 @@ def search_products(category: str = None, location: str = None):
         
         if category is not None and location is not None:
             cursor.execute(
-            "SELECT * FROM products WHERE category = ? AND location = ?",
+            "SELECT * FROM products WHERE category = %s AND location = %s",
             (category, location)
         )
         elif category is not None:
             cursor.execute(
-                "SELECT * FROM products WHERE category = ?", (category,)
+                "SELECT * FROM products WHERE category = %s", (category,)
             )
         else:
             cursor.execute(
-                "SELECT * FROM products WHERE location = ?", (location,)
+                "SELECT * FROM products WHERE location = %s", (location,)
                 )
         rows = cursor.fetchall()
 
@@ -91,7 +90,8 @@ def add_product(product: ProductCreate):
         cursor = connection.cursor()
         cursor.execute(""" 
         INSERT INTO products (sku, name, category, quantity, location, reorder_level, allocated_quantity) 
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        RETURNING id
         """, (
             product.sku, 
             product.name, 
@@ -102,14 +102,14 @@ def add_product(product: ProductCreate):
             0
         ))
 
+        new_product_id = cursor.fetchone()["id"]
         connection.commit()
-        new_product_id = cursor.lastrowid
 
         return {"message": "Product added successfully",
              "product_id": new_product_id
             }
 
-    except sqlite3.IntegrityError:
+    except psycopg2.IntegrityError:
         if connection:
             connection.rollback()
         raise HTTPException(status_code=409, detail="Product already exists or violates a database constraint")
@@ -129,14 +129,14 @@ def update_product(product_id: int, product: ProductUpdate):
         connection = get_db_connection()
         cursor = connection.cursor()
 
-        cursor.execute("SELECT * FROM products WHERE id = ?", (product_id,))
+        cursor.execute("SELECT * FROM products WHERE id = %s", (product_id,))
         row = cursor.fetchone()   
 
         if row is None:
             raise HTTPException(status_code=404, detail = "Product not found")
         
         cursor.execute(
-            "UPDATE products SET sku = ?, name = ?, category = ?, quantity = ?, location = ?, reorder_level = ?  WHERE id = ?", 
+            "UPDATE products SET sku = %s, name = %s, category = %s, quantity = %s, location = %s, reorder_level = %s  WHERE id = %s", 
             (product.sku, product.name, product.category, product.quantity, product.location, product.reorder_level, product_id)
             
             )
@@ -164,12 +164,12 @@ def delete_product(product_id: int):
     try:    
         connection = get_db_connection()
         cursor = connection.cursor()
-        cursor.execute("SELECT * FROM products WHERE id = ?", (product_id,))
+        cursor.execute("SELECT * FROM products WHERE id = %s", (product_id,))
         row = cursor.fetchone()
 
         if row is None:
             raise HTTPException(status_code=404, detail="Product not found")
-        cursor.execute("DELETE FROM products WHERE id = ?", (product_id,))
+        cursor.execute("DELETE FROM products WHERE id = %s", (product_id,))
         connection.commit()
 
         return {"message": "Product has been successfully deleted", "deleted_product": dict(row)}
@@ -195,7 +195,7 @@ def adjust_product_quantity(product_id: int, update: QuantityAdjustment):
         connection = get_db_connection()
         cursor = connection.cursor()
         cursor.execute(
-            "SELECT * FROM products WHERE id = ?", 
+            "SELECT * FROM products WHERE id = %s", 
             (product_id,)
         )
         row = cursor.fetchone()
@@ -207,12 +207,12 @@ def adjust_product_quantity(product_id: int, update: QuantityAdjustment):
             raise HTTPException(status_code=400, detail="Quantity can not be negative")
 
         cursor.execute(
-            "UPDATE products SET quantity = quantity + ? WHERE id = ?", 
+            "UPDATE products SET quantity = quantity + %s WHERE id = %s", 
             (update.change, product_id)
         )
         created_at = datetime.now().isoformat()
         cursor.execute(
-            "INSERT INTO inventory_movements (product_id, change, reason, created_at) VALUES (?,?,?,?)", 
+            "INSERT INTO inventory_movements (product_id, change, reason, created_at) VALUES (%s,%s,%s,%s)", 
             (product_id, update.change, update.reason, created_at)
         
         )
@@ -242,7 +242,7 @@ def find_product_by_id(product_id: int):
     connection = get_db_connection()
     cursor = connection.cursor()
 
-    cursor.execute("SELECT * FROM products WHERE id = ?", (product_id,))
+    cursor.execute("SELECT * FROM products WHERE id = %s", (product_id,))
     row = cursor.fetchone()
     connection.close()
 

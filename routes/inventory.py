@@ -56,7 +56,7 @@ def get_product_movements(product_id: int):
         FROM inventory_movements
         JOIN products
         ON inventory_movements.product_id = products.id
-        WHERE inventory_movements.product_id = ?  
+        WHERE inventory_movements.product_id = %s  
         ORDER BY inventory_movements.created_at DESC""", (product_id,))
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
@@ -74,7 +74,7 @@ def inventory_summary(product_id: int):
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
-        cursor.execute("SELECT * FROM products WHERE id = ?", (product_id,) )
+        cursor.execute("SELECT * FROM products WHERE id = %s", (product_id,) )
         row = cursor.fetchone()
 
         if row is None:
@@ -117,7 +117,7 @@ def update_product_quantity(product_id: int, update: QuantityUpdate):
         connection = get_db_connection()
         cursor = connection.cursor()
         cursor.execute(
-            "SELECT * FROM products WHERE id = ?",
+            "SELECT * FROM products WHERE id = %s",
             (product_id,)
         )
         row = cursor.fetchone()
@@ -130,11 +130,11 @@ def update_product_quantity(product_id: int, update: QuantityUpdate):
         current_quantity = row["quantity"]
         change = update.quantity - current_quantity
         cursor.execute(
-            "UPDATE products SET quantity = ? WHERE id = ?", 
+            "UPDATE products SET quantity = %s WHERE id = %s", 
             (update.quantity, product_id)
         )
         created_at = datetime.now().isoformat()
-        cursor.execute("INSERT INTO inventory_movements (product_id, change, reason, created_at) VALUES (?,?,?,?)", 
+        cursor.execute("INSERT INTO inventory_movements (product_id, change, reason, created_at) VALUES (%s,%s,%s,%s)", 
                     (product_id, change, "Manual quantity correction", created_at))
 
         connection.commit()
@@ -165,7 +165,7 @@ def adjust_product_quantity(product_id: int, update: QuantityAdjustment):
         connection = get_db_connection()
         cursor = connection.cursor()
         cursor.execute(
-            "SELECT * FROM products WHERE id = ?", 
+            "SELECT * FROM products WHERE id = %s", 
             (product_id,)
         )
         row = cursor.fetchone()
@@ -177,12 +177,12 @@ def adjust_product_quantity(product_id: int, update: QuantityAdjustment):
             raise HTTPException(status_code=400, detail="Quantity can not be negative")
 
         cursor.execute(
-            "UPDATE products SET quantity = quantity + ? WHERE id = ?", 
+            "UPDATE products SET quantity = quantity + %s WHERE id = %s", 
             (update.change, product_id)
         )
         created_at = datetime.now().isoformat()
         cursor.execute(
-            "INSERT INTO inventory_movements (product_id, change, reason, created_at) VALUES (?,?,?,?)", 
+            "INSERT INTO inventory_movements (product_id, change, reason, created_at) VALUES (%s,%s,%s,%s)", 
             (product_id, update.change, update.reason, created_at)
         
         )
@@ -214,7 +214,7 @@ def unallocate_order(order: InventoryAction):
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
-        cursor.execute("SELECT * FROM products WHERE id = ?", (order.product_id,)) 
+        cursor.execute("SELECT * FROM products WHERE id = %s", (order.product_id,)) 
         row = cursor.fetchone()
 
         if row is None:
@@ -233,7 +233,7 @@ def unallocate_order(order: InventoryAction):
         available_quantity = quantity - new_allocated
 
 
-        cursor.execute("UPDATE products SET allocated_quantity = ? WHERE id = ?", (new_allocated, order.product_id))
+        cursor.execute("UPDATE products SET allocated_quantity = %s WHERE id = %s", (new_allocated, order.product_id))
         connection.commit()
        
 
@@ -264,7 +264,7 @@ def find_product_by_id(product_id: int):
     connection = get_db_connection()
     cursor = connection.cursor()
 
-    cursor.execute("SELECT * FROM products WHERE id = ?", (product_id,))
+    cursor.execute("SELECT * FROM products WHERE id = %s", (product_id,))
     row = cursor.fetchone()
     connection.close()
 

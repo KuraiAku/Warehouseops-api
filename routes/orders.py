@@ -21,7 +21,7 @@ def create_order(order: OrderCreate):
             if item.quantity <= 0:
                 raise HTTPException(status_code=400, detail="Item quantity must be positive")
 
-            cursor.execute("SELECT * FROM products WHERE id = ?", (item.product_id,))
+            cursor.execute("SELECT * FROM products WHERE id = %s", (item.product_id,))
             product = cursor.fetchone()
 
             if product is None:
@@ -29,16 +29,20 @@ def create_order(order: OrderCreate):
 
         
         cursor.execute(
-            "INSERT INTO orders (status, created_at) VALUES (?, ?)",
+            """
+            INSERT INTO orders (status, created_at)
+            VALUES (%s, %s)
+            RETURNING id
+            """,
             ("pending", created_at)
         )
 
-        new_order_id = cursor.lastrowid
+        new_order_id = cursor.fetchone()["id"]
 
         
         for item in order.items:
             cursor.execute(
-                "INSERT INTO order_items (order_id, product_id, quantity, status) VALUES (?, ?, ?, ?)",
+                "INSERT INTO order_items (order_id, product_id, quantity, status) VALUES (%s, %s, %s, %s)",
                 (new_order_id, item.product_id, item.quantity, "pending")
             )
 
@@ -79,7 +83,7 @@ def get_order(order_id: int):
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
-        cursor.execute("SELECT * FROM orders WHERE id = ?", (order_id,))
+        cursor.execute("SELECT * FROM orders WHERE id = %s", (order_id,))
         order_row = cursor.fetchone()
     
 
@@ -90,7 +94,7 @@ def get_order(order_id: int):
         status = order_row["status"]
         created_time = order_row["created_at"]
 
-        cursor.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,))
+        cursor.execute("SELECT * FROM order_items WHERE order_id = %s", (order_id,))
         item_rows = cursor.fetchall()
         item_list = [dict(item) for item in item_rows]
         return {
@@ -115,7 +119,7 @@ def allocate_order(order_id: int):
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
-        cursor.execute("SELECT * FROM orders WHERE id = ?", (order_id,))
+        cursor.execute("SELECT * FROM orders WHERE id = %s", (order_id,))
         order_row = cursor.fetchone()
 
         if order_row is None:
@@ -125,7 +129,7 @@ def allocate_order(order_id: int):
         
              
         
-        cursor.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,))
+        cursor.execute("SELECT * FROM order_items WHERE order_id = %s", (order_id,))
         order_items = cursor.fetchall()
 
         if not order_items:
@@ -148,7 +152,7 @@ def allocate_order(order_id: int):
 
         for product_id, total_requested_quantity in order_items_quantities.items():
 
-            cursor.execute("SELECT * FROM products WHERE id = ?", (product_id,))
+            cursor.execute("SELECT * FROM products WHERE id = %s", (product_id,))
             product = cursor.fetchone()
 
             if product is None:
@@ -166,10 +170,10 @@ def allocate_order(order_id: int):
         for product_id, total_requested_quantity in order_items_quantities.items():
             
         
-            cursor.execute("UPDATE products SET allocated_quantity = allocated_quantity + ? WHERE id = ?", (total_requested_quantity, product_id))
+            cursor.execute("UPDATE products SET allocated_quantity = allocated_quantity + %s WHERE id = %s", (total_requested_quantity, product_id))
         
-        cursor.execute("UPDATE order_items SET status = ? WHERE order_id = ?", ("allocated", order_id))
-        cursor.execute("UPDATE orders SET status = ? WHERE id = ?", ("allocated", order_id))
+        cursor.execute("UPDATE order_items SET status = %s WHERE order_id = %s", ("allocated", order_id))
+        cursor.execute("UPDATE orders SET status = %s WHERE id = %s", ("allocated", order_id))
         connection.commit()
 
         return {
@@ -199,7 +203,7 @@ def pick_order(order_id: int):
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
-        cursor.execute("SELECT * FROM orders WHERE id = ?", (order_id,))
+        cursor.execute("SELECT * FROM orders WHERE id = %s", (order_id,))
         order_row = cursor.fetchone()
 
         if order_row is None:
@@ -208,14 +212,14 @@ def pick_order(order_id: int):
         if order_row["status"] != "allocated":
             raise HTTPException(status_code=400, detail=("Only orders with allocated status can be picked"))
         
-        cursor.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,))
+        cursor.execute("SELECT * FROM order_items WHERE order_id = %s", (order_id,))
         item_in_orders = cursor.fetchall()
 
         if not item_in_orders:
             raise HTTPException(status_code=404, detail="No orders available to pick")
         
         for item in item_in_orders:
-            cursor.execute("SELECT * FROM products WHERE id = ?", (item["product_id"],))
+            cursor.execute("SELECT * FROM products WHERE id = %s", (item["product_id"],))
             product = cursor.fetchone()
 
             if product is None:
@@ -231,14 +235,14 @@ def pick_order(order_id: int):
             
             created_at = datetime.now().isoformat()
 
-            cursor.execute("INSERT INTO inventory_movements (product_id, change, reason, created_at) VALUES (?,?,?,?)",
+            cursor.execute("INSERT INTO inventory_movements (product_id, change, reason, created_at) VALUES (%s,%s,%s,%s)",
                             (item["product_id"], -item["quantity"], "Item picked", created_at))
             
-            cursor.execute("UPDATE products SET quantity = ?, allocated_quantity = ? WHERE id = ?",
+            cursor.execute("UPDATE products SET quantity = %s, allocated_quantity = %s WHERE id = %s",
                             (new_quantity, new_allocated, item["product_id"]))
 
-        cursor.execute("UPDATE order_items SET status = ? WHERE order_id = ?", ("picked", order_id))
-        cursor.execute("UPDATE orders SET status = ? WHERE id = ?", ("picked", order_id))
+        cursor.execute("UPDATE order_items SET status = %s WHERE order_id = %s", ("picked", order_id))
+        cursor.execute("UPDATE orders SET status = %s WHERE id = %s", ("picked", order_id))
         connection.commit()
         return {"message": "Order picked successfully", "order_id": order_id}
 
@@ -262,7 +266,7 @@ def cancel_order(order_id: int):
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
-        cursor.execute("SELECT * FROM orders WHERE id = ?", (order_id,))
+        cursor.execute("SELECT * FROM orders WHERE id = %s", (order_id,))
 
         order_row = cursor.fetchone()
         if order_row is None:
@@ -274,14 +278,14 @@ def cancel_order(order_id: int):
         elif order_row["status"] == "cancelled":
             raise HTTPException(status_code=400, detail="Order is already cancelled")
 
-        cursor.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,))
+        cursor.execute("SELECT * FROM order_items WHERE order_id = %s", (order_id,))
         order_items = cursor.fetchall()
 
         if not order_items:
             raise HTTPException(status_code=404, detail="No orders to be cancelled")
         
         for item in order_items:
-            cursor.execute("SELECT * FROM products WHERE id = ?", (item["product_id"],)) 
+            cursor.execute("SELECT * FROM products WHERE id = %s", (item["product_id"],)) 
             product = cursor.fetchone()
 
             if product is None:
@@ -292,11 +296,11 @@ def cancel_order(order_id: int):
 
                 if new_allocated < 0:
                     raise HTTPException(status_code=400, detail="Allocated quantity can not be less than zero")
-                cursor.execute("UPDATE products SET allocated_quantity = ? WHERE id = ?", (new_allocated, item["product_id"]))                           
+                cursor.execute("UPDATE products SET allocated_quantity = %s WHERE id = %s", (new_allocated, item["product_id"]))                           
             
             
-        cursor.execute("UPDATE orders SET status = ? WHERE id = ?", ("cancelled", order_id))
-        cursor.execute("UPDATE order_items SET status = ? WHERE order_id = ?", ("cancelled", order_id))
+        cursor.execute("UPDATE orders SET status = %s WHERE id = %s", ("cancelled", order_id))
+        cursor.execute("UPDATE order_items SET status = %s WHERE order_id = %s", ("cancelled", order_id))
         connection.commit()
         return {"message": "Order cancelled successfully", "order_id": order_id}
 

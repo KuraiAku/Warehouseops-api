@@ -1,10 +1,21 @@
 import os
-import sqlite3
+
+import psycopg2
+from dotenv import load_dotenv
+from psycopg2.extras import RealDictCursor
+
+
+load_dotenv()
 
 
 def get_db_connection():
-    database_name = os.getenv("DATABASE_NAME", "warehouse.db")
+    connection = psycopg2.connect(
+        dbname=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        host=os.getenv("DB_HOST"),
+        port=os.getenv("DB_PORT"),
+        cursor_factory=RealDictCursor
+    )
 
-    connection = sqlite3.connect(database_name)
-    connection.row_factory = sqlite3.Row
     return connection
