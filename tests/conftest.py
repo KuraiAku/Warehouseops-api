@@ -1,17 +1,31 @@
 import os
-import sqlite3
+
 import pytest
+import psycopg2
+from dotenv import load_dotenv
 from fastapi.testclient import TestClient
+from psycopg2.extras import RealDictCursor
 
 
-TEST_DATABASE = "test_warehouse.db"
+load_dotenv()
+
+
+def get_test_connection():
+    return psycopg2.connect(
+        dbname=os.getenv("TEST_DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        host=os.getenv("DB_HOST"),
+        port=os.getenv("DB_PORT"),
+        cursor_factory=RealDictCursor
+    )
 
 
 @pytest.fixture
 def client():
-    os.environ["DATABASE_NAME"] = TEST_DATABASE
+    os.environ["DB_NAME"] = os.getenv("TEST_DB_NAME")
 
-    connection = sqlite3.connect(TEST_DATABASE)
+    connection = get_test_connection()
     cursor = connection.cursor()
 
     cursor.execute("DROP TABLE IF EXISTS order_items")
@@ -21,7 +35,7 @@ def client():
 
     cursor.execute("""
     CREATE TABLE products (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         sku TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL,
         category TEXT NOT NULL,
@@ -34,18 +48,17 @@ def client():
 
     cursor.execute("""
     CREATE TABLE inventory_movements (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        product_id INTEGER NOT NULL,
+        id SERIAL PRIMARY KEY,
+        product_id INTEGER NOT NULL REFERENCES products(id),
         change INTEGER NOT NULL,
         reason TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        FOREIGN KEY (product_id) REFERENCES products(id)
+        created_at TEXT NOT NULL
     )
     """)
 
     cursor.execute("""
     CREATE TABLE orders (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         status TEXT NOT NULL,
         created_at TEXT NOT NULL
     )
@@ -53,17 +66,16 @@ def client():
 
     cursor.execute("""
     CREATE TABLE order_items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        order_id INTEGER NOT NULL,
-        product_id INTEGER NOT NULL,
+        id SERIAL PRIMARY KEY,
+        order_id INTEGER NOT NULL REFERENCES orders(id),
+        product_id INTEGER NOT NULL REFERENCES products(id),
         quantity INTEGER NOT NULL,
-        status TEXT NOT NULL,
-        FOREIGN KEY (order_id) REFERENCES orders(id),
-        FOREIGN KEY (product_id) REFERENCES products(id)
+        status TEXT NOT NULL
     )
     """)
 
     connection.commit()
+    cursor.close()
     connection.close()
 
     from main import app
@@ -72,7 +84,17 @@ def client():
 
     yield test_client
 
-    os.environ.pop("DATABASE_NAME", None)
+    connection = get_test_connection()
+    cursor = connection.cursor()
 
-    if os.path.exists(TEST_DATABASE):
-        os.remove(TEST_DATABASE)
+    cursor.execute("DROP TABLE IF EXISTS order_items")
+    cursor.execute("DROP TABLE IF EXISTS orders")
+    cursor.execute("DROP TABLE IF EXISTS inventory_movements")
+    cursor.execute("DROP TABLE IF EXISTS products")
+
+    connection.commit()
+    cursor.close()
+    connection.close()
+
+    os.environ["DB_NAME"] = "warehouse_ops"
+    
