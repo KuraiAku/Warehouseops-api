@@ -32,10 +32,6 @@ def create_test_order(client, product_id, quantity=5):
     return response.json()["order_id"]
 
 
-
-
-
-
 def test_allocate_order_success(client):
     product_id = create_test_product(
         client,
