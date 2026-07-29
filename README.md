@@ -157,6 +157,62 @@ http://127.0.0.1:8000/docs
 
 ---
 
+
+---
+
+## Example API Flow
+
+### 1. Create a product
+
+```http
+POST /products
+```
+
+```json
+{
+  "sku": "BOX-1001",
+  "name": "Shipping Boxes",
+  "category": "Packaging",
+  "quantity": 100,
+  "location": "Aisle 3 - Bin 12",
+  "reorder_level": 20
+}
+```
+
+### 2. Create an order
+
+```http
+POST /orders
+```
+
+```json
+{
+  "items": [
+    {
+      "product_id": 1,
+      "quantity": 5
+    }
+  ]
+}
+```
+
+### 3. Allocate the order
+
+```http
+POST /orders/1/allocate
+```
+
+Allocation reserves inventory for the order.
+
+### 4. Pick the order
+
+```http
+POST /orders/1/pick
+```
+
+Picking removes the inventory from quantity on hand and reduces allocated quantity.
+
+
 ## Testing
 
 The project uses pytest with a separate PostgreSQL test database.
