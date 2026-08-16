@@ -159,7 +159,7 @@ def update_product_quantity(product_id: int, update: QuantityUpdate):
             connection.close()
 
 @router.patch("/products/{product_id}/adjust-quantity")
-def adjust_product_quantity(product_id: int, update: QuantityAdjustment):
+def adjust_inventory_quantity(product_id: int, update: QuantityAdjustment):
     connection = None
     try:
         connection = get_db_connection()
