@@ -1,3 +1,5 @@
+from multiprocessing.dummy import connection
+
 from fastapi import APIRouter, HTTPException
 from database import get_db_connection
 
@@ -54,6 +56,33 @@ def get_inventory_status():
     except Exception as error:
         raise HTTPException(status_code=500, detail=str(error))
 
+    finally:
+        cursor.close()
+        connection.close()
+
+
+@router.get("/movement-summary")
+def get_movements_summary():
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT
+                COUNT(*) AS total_movements,
+                COALESCE(SUM(CASE WHEN change > 0 THEN change ELSE 0 END), 0) AS total_units_added,
+                COALESCE(SUM(CASE WHEN change < 0 THEN ABS(change) ELSE 0 END), 0) AS total_units_removed,
+                COALESCE(SUM(change), 0) AS net_change
+            FROM inventory_movements
+        """)
+
+        summary = cursor.fetchone()
+        return summary
+    
+    except Exception as error:
+            raise HTTPException(status_code=500, detail=str(error))
+
+    
     finally:
         cursor.close()
         connection.close()
