@@ -1,3 +1,4 @@
+from dbm import error
 from multiprocessing.dummy import connection
 
 from fastapi import APIRouter, HTTPException
@@ -83,6 +84,32 @@ def get_movements_summary():
             raise HTTPException(status_code=500, detail=str(error))
 
     
+    finally:
+        cursor.close()
+        connection.close()
+
+
+@router.get("/movement-summary-by-reason")
+def get_movement_summary_by_reason():
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        cursor.execute("""
+            SELECT
+                reason,
+                COUNT(*) AS total_movements,
+                COALESCE(SUM(change), 0) AS net_quantity_change
+            FROM inventory_movements
+            GROUP BY reason
+            ORDER BY total_movements DESC    
+        """)
+
+        summary = cursor.fetchall()
+        return summary
+
+    except Exception as error:
+            raise HTTPException(status_code=500, detail=str(error))
+
     finally:
         cursor.close()
         connection.close()
